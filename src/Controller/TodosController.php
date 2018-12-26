@@ -3,32 +3,41 @@
 namespace App\Controller;
 
 use Doctrine\DBAL\Connection;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 
 class TodosController extends AbstractController
 {
-    public function showTodos(Connection $connection)
-    {
-        if (isset($_GET['all']) && $_GET['all'] == '1') {
-            $todos = $connection->fetchAll('SELECT t.* FROM todos t');
-        } else {
-            $todos = $connection->fetchAll('SELECT t.* FROM todos t WHERE completed = 0');
-        }
 
-        return $this->render('showTodos.html.twig', ['todos' => $todos]);
+    /**
+     * Show completed and uncompleted items
+     *
+     * @param Connection $connection
+     * @param Request $request
+     * @return Response
+     */
+    public function showTodos(Connection $connection, Request $request): Response
+    {
+        $get_all = (int) $request->query->get('all');
+
+        $todos = $connection->fetchAll('SELECT t.* FROM todos t' . (!$get_all ? ' WHERE completed = 0' : ''));
+
+        return $this->render('showTodos.html.twig', ['todos' => $todos, 'get_all' => $get_all]);
     }
 
-    public function completeTodo(Connection $connection)
+    /**
+     * @param Connection $connection
+     * @param Request $request
+     * @param int $status
+     * @return Response
+     * @throws \Doctrine\DBAL\DBALException
+     */
+    public function toggleTodoCompleteness(Connection $connection, Request $request, int $status): Response
     {
-        $connection->executeQuery('UPDATE todos SET completed = 1 WHERE id = ' . $_GET['id']);
+        $connection->executeQuery('UPDATE todos SET completed = ' . (int) $status . ' WHERE id = ' . (int) $request->query->get('id'));
 
         return $this->redirect('/');
     }
 
-    public function uncompleteTodo(Connection $connection)
-    {
-        $connection->executeQuery('UPDATE todos SET completed = 0 WHERE id = ' . $_GET['id']);
-
-        return $this->redirect('/');
-    }
 }

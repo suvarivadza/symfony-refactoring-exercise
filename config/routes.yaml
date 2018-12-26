@@ -4,8 +4,12 @@ showTodos:
 
 completeTodo:
   path: /complete
-  controller: App\Controller\TodosController::completeTodo
+  controller: App\Controller\TodosController::toggleTodoCompleteness
+  defaults:
+    status: 1
 
 uncompleteTodo:
   path: /uncomplete
-  controller: App\Controller\TodosController::uncompleteTodo
+  controller: App\Controller\TodosController::toggleTodoCompleteness
+  defaults:
+    status: 0
