@@ -2,14 +2,24 @@ showTodos:
   path: /
   controller: App\Controller\TodosController::showTodos
 
+allTodos:
+  path: /all
+  controller: App\Controller\TodosController::showTodos
+  defaults:
+    all: 1
+
 completeTodo:
-  path: /complete
+  path: /complete/{id}
   controller: App\Controller\TodosController::toggleTodoCompleteness
   defaults:
     status: 1
+  requirements:
+    id: '\d+'
 
 uncompleteTodo:
-  path: /uncomplete
+  path: /uncomplete/{id}
   controller: App\Controller\TodosController::toggleTodoCompleteness
   defaults:
     status: 0
+  requirements:
+    id: '\d+'
