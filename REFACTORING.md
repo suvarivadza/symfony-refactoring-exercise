@@ -5,23 +5,31 @@
 `src/Kernel.php`: т.к. текущая версия `symfony/dependency-injection` > 4.0, строку 
   `$container->setParameter('container.autowiring.strict_mode', true);` можно убрать.
   
-`src/controller/TodosController.php`: обращение напрямую к $_GET не является хорошей практикой, поэтому (и еще для красоты) оно заменяется на адресацию через роутинг: `/all`, `/complete/{id}`, `/uncomplete/{id}`. 
+Контроллер `src/controller/TodosController.php`: обращение напрямую к $_GET не является хорошей практикой, поэтому (и еще для красоты) оно заменяется на адресацию через роутинг: `/all`, `/complete/{id}`, `/uncomplete/{id}`. 
 При помощи Response из HttpFoundation Component типизируется return у всех методов класса.
-Код `if/else` внутри метода `showTodos` оптимизируется применением тернарного оператора.
-Кроме этого, имеет смысл передать в шаблон состояние переменной `all` для того, что бы сделать ссылку-переключатель "Show completed" в `templates/showTodos.html.twig` более информативной и менять её текст в зависимости от запроса -- Show all / Show completed only
+
+Обращение к БД заменяется на Doctrine, в связи с этим появляется модель `src/Entity/Todos.php` и репозиторий `src/Repository/TodosRepository.php`
+
+Кроме этого, имеет смысл передать в шаблон состояние переменной `all` для того, что бы сделать переключатель "Show completed" в `templates/showTodos.html.twig` более информативным и менять его текст в зависимости от запроса: Show all / Show completed only
+
+Кстати, в оригинальном коде проверка `$_GET['all'] == '1'` является избыточной, т.к. значение этой переменной нигде не используется, достаточно просто проверять её на существование.
+
+src/controller/TodosController.php:
 ```
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 ...
-    public function showTodos(Connection $connection, int $all = null): Response
+public function showTodos(EntityManagerInterface $entityManager, int $all = null): Response
     {
-        $todos = $connection->fetchAll('SELECT t.* FROM todos t' . (!$all ? ' WHERE completed = 0' : ''));
+        $repo = $this->getDoctrine()->getManager()->getRepository(Todos::class);
+
+        if ($all){
+            $todos = $repo->findAll();
+        } else {
+            $todos = $repo->findBy(['completed' => 0]);
+        }
+
         return $this->render('showTodos.html.twig', ['todos' => $todos, 'get_all' => $all]);
     }
 ```
-Кода шаблона немного оптимизирован за счет вынесения тэгов `<li>` за пределы `if else`.
-
-Кстати, в оригинальном коде проверка `$_GET['all'] == '1'` является избыточной, т.к. значение этой переменной нигде не используется, достаточно просто проверять её на существование.
 
 В том же контроллере, два идентичных по функционалу метода `completeTodo` и `uncompleteTodo`, заменяются на универсальный `toggleTodoCompleteness`, который и переключает `complete` в 0 или 1 в зависимости от роутинга. 
 
@@ -46,11 +54,25 @@ uncompleteTodo:
 
 src/controller/TodosController.php:
 ```
-    public function toggleTodoCompleteness(Connection $connection, int $status, int $id): Response
+...
+public function toggleTodoCompleteness(EntityManagerInterface $entityManager, int $status, int $id): Response
     {
-        $connection->executeUpdate('UPDATE todos SET completed = ' . (int) $status . ' WHERE id = ' . (int) $id);
+        $entityManager = $this->getDoctrine()->getManager();
+        $todos = $entityManager->getRepository(Todos::class)->find($id);
+
+        if (!$todos) {
+            throw $this->createNotFoundException(
+                'No product found for id '.$id
+            );
+        }
+
+        $todos->setCompleted($status);
+        $entityManager->flush();
+
         return $this->redirect('/');
     }
 ```
 
-Если бы код внутри контроллера был более объемный, имело бы смысл вынести ту часть, которая работает с БД, в модель. 
+Кода шаблона `templates/showTodos.html.twig` немного оптимизирован за счет вынесения тэгов `<li>` за пределы `if else`. 
+
+The End.

@@ -2,35 +2,51 @@
 
 namespace App\Controller;
 
-use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Entity\Todos;
 
 class TodosController extends AbstractController
 {
 
     /**
-     * @param Connection $connection
+     * @param EntityManagerInterface $entityManager
      * @param int|null $all
      * @return Response
      */
-    public function showTodos(Connection $connection, int $all = null): Response
+    public function showTodos(EntityManagerInterface $entityManager, int $all = null): Response
     {
-        $todos = $connection->fetchAll('SELECT t.* FROM todos t' . (!$all ? ' WHERE completed = 0' : ''));
+        $repo = $this->getDoctrine()->getManager()->getRepository(Todos::class);
+
+        if ($all){
+            $todos = $repo->findAll();
+        } else {
+            $todos = $repo->findBy(['completed' => 0]);
+        }
 
         return $this->render('showTodos.html.twig', ['todos' => $todos, 'get_all' => $all]);
     }
 
     /**
-     * @param Connection $connection
+     * @param EntityManagerInterface $entityManager
      * @param int $status
      * @param int $id
      * @return Response
-     * @throws \Doctrine\DBAL\DBALException
      */
-    public function toggleTodoCompleteness(Connection $connection, int $status, int $id): Response
+    public function toggleTodoCompleteness(EntityManagerInterface $entityManager, int $status, int $id): Response
     {
-        $connection->executeUpdate('UPDATE todos SET completed = ' . (int) $status . ' WHERE id = ' . (int) $id);
+        $entityManager = $this->getDoctrine()->getManager();
+        $todos = $entityManager->getRepository(Todos::class)->find($id);
+
+        if (!$todos) {
+            throw $this->createNotFoundException(
+                'No product found for id '.$id
+            );
+        }
+
+        $todos->setCompleted($status);
+        $entityManager->flush();
 
         return $this->redirect('/');
     }
